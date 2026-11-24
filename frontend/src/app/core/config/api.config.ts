@@ -2,9 +2,11 @@
  * Configuration centralisée de l'API
  * Toutes les requêtes passent par le Spring Cloud Gateway
  */
+import { environment } from '../../../environments/environment';
+
 export const API_CONFIG = {
   // URL du Spring Cloud Gateway (point d'entrée unique)
-  gatewayUrl: 'http://localhost:1111',
+  gatewayUrl: environment.apiUrl,
   
   // Endpoints des microservices via le gateway
   endpoints: {

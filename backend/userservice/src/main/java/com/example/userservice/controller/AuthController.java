@@ -43,29 +43,20 @@ public class AuthController {
         String email = loginRequest.get("email");
         String password = loginRequest.get("password");
 
-        System.out.println("=== LOGIN ATTEMPT ===");
-        System.out.println("Email: " + email);
-        System.out.println("Password provided: " + password);
-
         try {
             // First, check if user exists
             var userOpt = userService.getUserByEmail(email);
             if (userOpt.isEmpty()) {
-                System.out.println("User not found in database");
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(Map.of("error", "Invalid email or password"));
             }
 
             User dbUser = userOpt.get();
-            System.out.println("User found: " + dbUser.getEmail());
-            System.out.println("DB Password hash: " + dbUser.getPassword());
 
             // Verify password before attempting authentication
             boolean passwordMatches = passwordEncoder.matches(password, dbUser.getPassword());
-            System.out.println("Password verification: " + passwordMatches);
             
             if (!passwordMatches) {
-                System.out.println("Password does not match for user: " + email);
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(Map.of("error", "Invalid email or password"));
             }
@@ -75,7 +66,6 @@ public class AuthController {
                     new UsernamePasswordAuthenticationToken(email, password)
             );
 
-            System.out.println("Authentication successful!");
             String token = jwtTokenProvider.generateToken(authentication);
 
             Map<String, String> response = new HashMap<>();
@@ -83,7 +73,6 @@ public class AuthController {
             response.put("email", email);
             return ResponseEntity.ok(response);
         } catch (AuthenticationException ex) {
-            System.out.println("Authentication failed: " + ex.getMessage());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("error", "Invalid email or password"));
         }

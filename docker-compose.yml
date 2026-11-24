@@ -1,0 +1,146 @@
+services:
+  oracle:
+    image: gvenzl/oracle-free:23-slim
+    environment:
+      APP_USER: ${ORACLE_APP_USER:-eventflow}
+      APP_USER_PASSWORD: ${ORACLE_APP_PASSWORD:-eventflow_dev}
+      ORACLE_PASSWORD: ${ORACLE_SYS_PASSWORD:-oracle_dev}
+    ports:
+      - "127.0.0.1:${ORACLE_HOST_PORT:-11521}:1521"
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+    restart: unless-stopped
+
+  eureka:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      args:
+        SERVICE_NAME: eurekaserver
+    environment:
+      SPRING_CLOUD_CONFIG_ENABLED: "false"
+      EUREKA_CLIENT_REGISTER_WITH_EUREKA: "false"
+      EUREKA_CLIENT_FETCH_REGISTRY: "false"
+      EUREKA_INSTANCE_HOSTNAME: eureka
+    ports:
+      - "127.0.0.1:${EUREKA_HOST_PORT:-18761}:8761"
+    restart: unless-stopped
+
+  configserver:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      args:
+        SERVICE_NAME: configserver
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+    depends_on:
+      eureka:
+        condition: service_started
+    ports:
+      - "127.0.0.1:${CONFIGSERVER_HOST_PORT:-18888}:8888"
+    restart: unless-stopped
+
+  userservice:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      args:
+        SERVICE_NAME: userservice
+    environment: &app-environment
+      SPRING_CLOUD_CONFIG_ENABLED: "false"
+      SPRING_DATASOURCE_URL: jdbc:oracle:thin:@oracle:1521/FREEPDB1
+      SPRING_DATASOURCE_USERNAME: ${ORACLE_APP_USER:-eventflow}
+      SPRING_DATASOURCE_PASSWORD: ${ORACLE_APP_PASSWORD:-eventflow_dev}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SECURITY_JWT_SECRET: ${JWT_SECRET:-A4kVIT9eXHnjs8dRXXg3om0HXbQ/MAAev34MH89QM5o=}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+    depends_on: &app-dependencies
+      oracle:
+        condition: service_healthy
+      eureka:
+        condition: service_started
+    restart: unless-stopped
+
+  eventservice:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      args:
+        SERVICE_NAME: eventservice
+    environment: *app-environment
+    depends_on: *app-dependencies
+    restart: unless-stopped
+
+  campaignservice:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      args:
+        SERVICE_NAME: campaignservice
+    environment: *app-environment
+    depends_on: *app-dependencies
+    restart: unless-stopped
+
+  analyticsservice:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      args:
+        SERVICE_NAME: analyticsservice
+    environment: *app-environment
+    depends_on: *app-dependencies
+    restart: unless-stopped
+
+  notificationservice:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      args:
+        SERVICE_NAME: notificationservice
+    environment:
+      <<: *app-environment
+      SPRING_MAIL_USERNAME: ${MAIL_USERNAME:-}
+      SPRING_MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+    depends_on: *app-dependencies
+    restart: unless-stopped
+
+  reactivegateway:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      args:
+        SERVICE_NAME: reactivegateway
+    environment:
+      SPRING_CLOUD_CONFIG_ENABLED: "false"
+      SECURITY_JWT_SECRET: ${JWT_SECRET:-A4kVIT9eXHnjs8dRXXg3om0HXbQ/MAAev34MH89QM5o=}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+    depends_on:
+      eureka:
+        condition: service_started
+    ports:
+      - "127.0.0.1:1112:1111"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    depends_on:
+      reactivegateway:
+        condition: service_started
+    ports:
+      - "127.0.0.1:8080:4000"
+    restart: unless-stopped
+
+volumes:
+  oracle-data:

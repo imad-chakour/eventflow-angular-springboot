@@ -4,10 +4,16 @@ import {
   isMainModule,
   writeResponseToNodeResponse,
 } from '@angular/ssr/node';
+import { ɵsetAngularAppEngineManifest } from '@angular/ssr';
 import express from 'express';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const browserDistFolder = join(import.meta.dirname, '../browser');
+const { default: angularAppEngineManifest } = await import(
+  pathToFileURL(join(import.meta.dirname, 'angular-app-engine-manifest.mjs')).href,
+);
+ɵsetAngularAppEngineManifest(angularAppEngineManifest);
 
 const app = express();
 const angularApp = new AngularNodeAppEngine();
@@ -34,6 +40,14 @@ app.use(
     redirect: false,
   }),
 );
+
+app.get(['/login', '/register'], (req, res, next) => {
+  res.sendFile(join(browserDistFolder, req.path.slice(1), 'index.html'), (error) => {
+    if (error) {
+      next(error);
+    }
+  });
+});
 
 /**
  * Handle all other requests by rendering the Angular application.

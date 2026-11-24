@@ -10,6 +10,7 @@ Application full-stack microservices pour la gestion d'événements et de campag
 - [Prérequis](#prérequis)
 - [Installation](#installation)
 - [Démarrage](#démarrage)
+- [Docker](#docker)
 - [Microservices](#microservices)
 - [API Gateway](#api-gateway)
 - [Frontend](#frontend)
@@ -165,7 +166,7 @@ mvn spring-boot:run
 
 **Vérification :**
 - Eureka Dashboard : http://localhost:8761
-- Config Server : http://localhost:8888
+- Config Server (Docker) : http://localhost:18888
 
 #### 2. Microservices métier
 
@@ -209,13 +210,39 @@ npm start
 
 **Application accessible sur :** http://localhost:4200
 
+## Docker
+
+Docker Desktop avec Docker Compose v2 est requis. Depuis la racine du dépôt :
+
+```bash
+docker compose up --build
+```
+
+Le stack démarre Oracle Free, Eureka, Config Server, les cinq services métier, l'API Gateway et le frontend Angular SSR. Les services Spring se compilent dans des images Java 17 ; le frontend est construit pour la production puis servi par son serveur Node SSR.
+
+- Frontend : http://localhost:8080
+- API Gateway (Docker) : http://localhost:1112
+- Eureka : http://localhost:18761 (port configurable with `EUREKA_HOST_PORT`)
+- Config Server (Docker) : http://localhost:18888
+- Oracle : `localhost:11521/FREEPDB1` (port configurable with `ORACLE_HOST_PORT`)
+
+Eureka remains on port `8761` inside Docker; its host port is `18761` by default so you can run a local Eureka instance from your IDE on `8761` at the same time. The Docker Config Server is available on host port `18888` (configurable with `CONFIGSERVER_HOST_PORT`), leaving `8888` available for an IDE-launched Config Server. Similarly, the Docker Gateway is available on host port `1112`, leaving `1111` available for an IDE-launched Gateway.
+
+The Docker frontend uses the Gateway at `http://localhost:1112`. When running the frontend with `npm start`, it uses `http://localhost:1111`. To have an IDE-launched Gateway discover the services running in Docker, set `EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://localhost:18761/eureka/` in its run configuration.
+
+Les services utilisent un schéma Oracle partagé destiné au développement local. Docker configure Hibernate pour mettre à jour ce schéma (`ddl-auto=update`) afin de créer les tables des services au démarrage ; utilisez plutôt des migrations de schéma contrôlées en production. Les identifiants par défaut sont uniquement des valeurs de développement ; personnalisez-les dans un fichier `.env` (à partir de `.env.example`) avant tout déploiement. Renseignez également `MAIL_USERNAME` et `MAIL_PASSWORD` pour activer l'envoi d'e-mails.
+
+Le User Service et le Gateway doivent partager le même `JWT_SECRET` Base64 d'au moins 256 bits. Générez-en un pour votre environnement avec `openssl rand -base64 32`, puis définissez-le dans `.env`.
+
+Pour arrêter le stack, utilisez `docker compose down`. Les données Oracle sont conservées dans un volume Docker ; `docker compose down -v` les supprime.
+
 ## 🔌 Microservices
 
 | Service | Port | Description | Endpoints principaux |
 |---------|------|-------------|----------------------|
 | **Eureka Server** | 8761 | Service Discovery | http://localhost:8761 |
-| **Config Server** | 8888 | Configuration centralisée | http://localhost:8888 |
-| **Reactive Gateway** | 1111 | API Gateway | http://localhost:1111 |
+| **Config Server** | 8888 (Docker host: 18888) | Configuration centralisée | http://localhost:18888 |
+| **Reactive Gateway** | 1111 (Docker host: 1112) | API Gateway | http://localhost:1112 |
 | **User Service** | 7020 | Gestion des utilisateurs | `/api/users` |
 | **Event Service** | 9030 | Gestion des événements | `/api/events` |
 | **Campaign Service** | 9020 | Gestion des campagnes | `/api/campaigns` |
