@@ -228,7 +228,25 @@ Le stack démarre Oracle Free, Eureka, Config Server, les cinq services métier,
 
 Eureka remains on port `8761` inside Docker; its host port is `18761` by default so you can run a local Eureka instance from your IDE on `8761` at the same time. The Docker Config Server is available on host port `18888` (configurable with `CONFIGSERVER_HOST_PORT`), leaving `8888` available for an IDE-launched Config Server. Similarly, the Docker Gateway is available on host port `1112`, leaving `1111` available for an IDE-launched Gateway.
 
-The Docker frontend uses the Gateway at `http://localhost:1112`. When running the frontend with `npm start`, it uses `http://localhost:1111`. To have an IDE-launched Gateway discover the services running in Docker, set `EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://localhost:18761/eureka/` in its run configuration.
+The Docker frontend uses relative API URLs so browsers call the same host as the frontend. On a shared OCI instance, keep these Docker ports bound to `127.0.0.1` and configure the existing reverse proxy to send `/api/` to the Gateway and all other paths to the frontend. Prefer a separate domain or subdomain for this project; add these locations to that domain's existing Nginx `server` block:
+
+```nginx
+location /api/ {
+    proxy_pass http://127.0.0.1:1112;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+
+location / {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+If either local port is already in use, set `GATEWAY_HOST_PORT` or `FRONTEND_HOST_PORT` in `.env`; update the corresponding Nginx upstream port to match. When running the frontend with `npm start`, it uses `http://localhost:1111`. To have an IDE-launched Gateway discover the services running in Docker, set `EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://localhost:18761/eureka/` in its run configuration.
 
 Les services utilisent un schéma Oracle partagé destiné au développement local. Docker configure Hibernate pour mettre à jour ce schéma (`ddl-auto=update`) afin de créer les tables des services au démarrage ; utilisez plutôt des migrations de schéma contrôlées en production. Les identifiants par défaut sont uniquement des valeurs de développement ; personnalisez-les dans un fichier `.env` (à partir de `.env.example`) avant tout déploiement. Renseignez également `MAIL_USERNAME` et `MAIL_PASSWORD` pour activer l'envoi d'e-mails.
 
