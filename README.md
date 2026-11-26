@@ -1,6 +1,6 @@
 # EventFlow - Application de Gestion d'Événements et Campagnes Marketing
 
-Application full-stack microservices pour la gestion d'événements et de campagnes marketing, construite avec Spring Boot et Angular.
+Application full-stack microservices pour la gestion d'événements et de campagnes marketing, construite avec Spring Boot et Angular
 
 ## 📋 Table des matières
 
